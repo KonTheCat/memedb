@@ -1,0 +1,11 @@
+.env
+__pycache__/
+*.pyc
+.venv/
+
+infra/.terraform/
+infra/backend.hcl
+infra/*.tfstate
+infra/*.tfstate.backup
+infra/tfplan
+sample_input_data/*

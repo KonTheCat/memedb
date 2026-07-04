@@ -1,0 +1,6 @@
+azure-cosmos
+azure-storage-blob
+openai
+httpx
+python-dotenv
+Pillow

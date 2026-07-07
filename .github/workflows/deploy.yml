@@ -58,7 +58,9 @@ jobs:
             --resource-group "${{ steps.apps.outputs.resource_group }}" \
             --name "${{ steps.apps.outputs.api_app }}" \
             --src-path api.zip \
-            --type zip
+            --type zip \
+            --async true \
+            --track-status
 
       - name: Package frontend
         shell: bash
@@ -72,4 +74,6 @@ jobs:
             --resource-group "${{ steps.apps.outputs.resource_group }}" \
             --name "${{ steps.apps.outputs.web_app }}" \
             --src-path frontend.zip \
-            --type zip
+            --type zip \
+            --async true \
+            --track-status

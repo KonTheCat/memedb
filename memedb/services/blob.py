@@ -29,3 +29,14 @@ class BlobService:
             content_settings=ContentSettings(content_type=content_type),
         )
         return f"{self._client.url.rstrip('/')}/{self._container}/{blob_name}"
+
+    def delete_image(self, blob_name: str) -> None:
+        container_client = self._client.get_container_client(self._container)
+        container_client.delete_blob(blob_name)
+
+    def download_image(self, blob_name: str) -> tuple[bytes, str]:
+        container_client = self._client.get_container_client(self._container)
+        blob_client = container_client.get_blob_client(blob_name)
+        downloader = blob_client.download_blob()
+        content_type = downloader.properties.content_settings.content_type or "application/octet-stream"
+        return downloader.readall(), content_type

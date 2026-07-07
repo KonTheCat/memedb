@@ -1,15 +1,25 @@
 #Requires -Version 7.0
 <#
 Bootstraps the OpenTofu remote state backend: a storage account + blob
-container that hold the tfstate file. Everything else (Cosmos DB, Vision,
-OpenAI, app blob storage, ...) is provisioned by `tofu` itself from ../.
-Safe to re-run - every step checks for existing state first.
+container that hold the tfstate file(s). Everything else (Cosmos DB, Vision,
+OpenAI, app blob storage, App Service, ...) is provisioned by `tofu` itself
+from ../, once per environment via infra/envs/<Environment>.tfvars.
+
+$ResourceGroupName is where the *state* storage account lives (shared across
+environments) - it does NOT need to match the resource group an environment's
+app resources deploy into (see infra/envs/*.tfvars for that).
+
+Safe to re-run - every step checks for existing state first. Re-running for
+an environment that was already bootstrapped just rewrites its backend.hcl
+with the same values.
 #>
 
 param(
     [string]$ResourceGroupName = "memedb",
     [string]$Location = "eastus2",
-    [string]$ContainerName = "tfstate"
+    [string]$ContainerName = "tfstate",
+    [ValidateSet("prod", "dev")]
+    [string]$Environment = "prod"
 )
 
 $ErrorActionPreference = "Stop"
@@ -60,12 +70,19 @@ az storage container create `
     --only-show-errors `
     -o none
 
-$backendHclPath = Join-Path $PSScriptRoot "..\backend.hcl"
+# The prod key stays "memedb.tfstate" for backward compatibility with state
+# bootstrapped before per-environment support existed.
+$stateKey = if ($Environment -eq "prod") { "memedb.tfstate" } else { "$Environment-memedb.tfstate" }
+
+$envsDir = Join-Path $PSScriptRoot "..\envs"
+New-Item -ItemType Directory -Force -Path $envsDir | Out-Null
+
+$backendHclPath = Join-Path $envsDir "$Environment.backend.hcl"
 $backendHcl = @"
 resource_group_name  = "$ResourceGroupName"
 storage_account_name = "$storageAccountName"
 container_name       = "$ContainerName"
-key                  = "memedb.tfstate"
+key                  = "$stateKey"
 "@
 Set-Content -Path $backendHclPath -Value $backendHcl -Encoding utf8NoBOM
 Write-Host "Wrote $backendHclPath"
@@ -73,6 +90,6 @@ Write-Host "Wrote $backendHclPath"
 Write-Host ""
 Write-Host "Next steps:"
 Write-Host "  cd infra"
-Write-Host "  tofu init -backend-config=backend.hcl"
-Write-Host "  tofu plan"
-Write-Host "  tofu apply"
+Write-Host "  tofu init -backend-config=envs/$Environment.backend.hcl -reconfigure"
+Write-Host "  tofu plan -var-file=envs/$Environment.tfvars"
+Write-Host "  tofu apply -var-file=envs/$Environment.tfvars"

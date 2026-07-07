@@ -5,6 +5,7 @@ __pycache__/
 
 infra/.terraform/
 infra/backend.hcl
+infra/envs/*.backend.hcl
 infra/*.tfstate
 infra/*.tfstate.backup
 infra/tfplan

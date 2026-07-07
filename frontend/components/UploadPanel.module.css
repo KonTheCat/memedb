@@ -1,0 +1,58 @@
+.wrapper {
+  margin-top: 2rem;
+  border-top: 1px solid #2e2e2e;
+  padding-top: 1rem;
+}
+
+.toggle {
+  background: none;
+  border: none;
+  color: #d4d4d4;
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  margin-top: 1rem;
+  max-width: 420px;
+}
+
+.form input,
+.form select {
+  padding: 0.5rem 0.7rem;
+  border-radius: 6px;
+  border: 1px solid #3a3a3a;
+  background: #1c1c1c;
+  color: #f4f4f4;
+  font-size: 0.9rem;
+}
+
+.form button {
+  padding: 0.55rem 1rem;
+  border-radius: 6px;
+  border: none;
+  background: #2563eb;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+  align-self: flex-start;
+}
+
+.form button:disabled {
+  background: #3a3a3a;
+  cursor: not-allowed;
+}
+
+.success {
+  color: #34d399;
+  font-size: 0.85rem;
+}
+
+.errorMessage {
+  color: #f87171;
+  font-size: 0.85rem;
+}

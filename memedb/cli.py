@@ -1,74 +1,16 @@
 import argparse
-import hashlib
 import sys
-import uuid
-from datetime import datetime, timezone
 from pathlib import Path
 
 from memedb.config import load_settings
-from memedb.models import VALID_CATEGORIES, MemeDocument
+from memedb.models import VALID_CATEGORIES
+from memedb.pipeline import DuplicateMemeError, ingest_image, search_by_image, search_by_text
 from memedb.services.blob import BlobService
 from memedb.services.cosmos import CosmosService
 from memedb.services.openai_client import OpenAIMetadataService
 from memedb.services.vision import ImageValidationError, VisionService
 
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
-
-
-def build_searchable_text(ocr_text: str, caption: str, template_name: str, tags: list[str]) -> str:
-    parts = [ocr_text, caption, template_name, *tags]
-    return " ".join(p for p in parts if p)
-
-
-def ingest_one(
-    path: Path,
-    category: str,
-    template_name_override: str | None,
-    source_url: str,
-    blob_service: BlobService,
-    vision_service: VisionService,
-    openai_service: OpenAIMetadataService,
-    cosmos_service: CosmosService,
-) -> None:
-    data = path.read_bytes()
-    file_hash = hashlib.sha256(data).hexdigest()
-
-    existing = cosmos_service.find_by_hash(file_hash)
-    if existing:
-        print(f"skipped {path.name}: duplicate of {existing['id']}")
-        return
-
-    doc_id = str(uuid.uuid4())
-    ext = path.suffix.lstrip(".").lower()
-    blob_name = f"{doc_id}.{ext}"
-
-    blob_url = blob_service.upload_image(data, blob_name)
-    vector = vision_service.vectorize_image(data)
-    metadata = openai_service.extract_metadata(data, ext)
-
-    template_name = template_name_override or metadata.get("templateName", "")
-    tags = metadata.get("tags", [])
-    ocr_text = metadata.get("ocrText", "")
-    caption = metadata.get("caption", "")
-
-    doc = MemeDocument(
-        id=doc_id,
-        category=category,
-        blobUrl=blob_url,
-        fileHash=file_hash,
-        uploadedAt=datetime.now(timezone.utc).isoformat(),
-        originalFilename=path.name,
-        ocrText=ocr_text,
-        caption=caption,
-        templateName=template_name,
-        tags=tags,
-        sourceUrl=source_url,
-        searchableText=build_searchable_text(ocr_text, caption, template_name, tags),
-        visualEmbedding=vector,
-        embeddingModel=vision_service.model_version,
-    )
-    cosmos_service.upsert_meme(doc)
-    print(f"ingested {path.name}: {doc_id}")
 
 
 def print_results(results: list[dict]) -> None:
@@ -90,9 +32,7 @@ def cmd_search_text(args: argparse.Namespace) -> int:
     vision_service = VisionService(settings)
     cosmos_service = CosmosService(settings)
 
-    query_vector = vision_service.vectorize_text(args.query)
-    words = args.query.split()[:10]
-    results = cosmos_service.search_hybrid(query_vector, words, args.category, args.top_k)
+    results = search_by_text(args.query, args.category, args.top_k, vision_service, cosmos_service)
     print_results(results)
     return 0
 
@@ -108,12 +48,11 @@ def cmd_search_image(args: argparse.Namespace) -> int:
     cosmos_service = CosmosService(settings)
 
     try:
-        query_vector = vision_service.vectorize_image(path.read_bytes())
+        results = search_by_image(path.read_bytes(), args.category, args.top_k, vision_service, cosmos_service)
     except ImageValidationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
-    results = cosmos_service.search_vector(query_vector, args.category, args.top_k)
     print_results(results)
     return 0
 
@@ -142,8 +81,9 @@ def cmd_ingest(args: argparse.Namespace) -> int:
     exit_code = 0
     for file_path in files:
         try:
-            ingest_one(
-                file_path,
+            doc = ingest_image(
+                file_path.read_bytes(),
+                file_path.name,
                 args.category,
                 args.template_name,
                 args.source_url,
@@ -152,6 +92,9 @@ def cmd_ingest(args: argparse.Namespace) -> int:
                 openai_service,
                 cosmos_service,
             )
+            print(f"ingested {file_path.name}: {doc.id}")
+        except DuplicateMemeError as exc:
+            print(f"skipped {file_path.name}: duplicate of {exc.existing_id}")
         except ImageValidationError as exc:
             print(f"skipped {file_path.name}: {exc}", file=sys.stderr)
             exit_code = 1

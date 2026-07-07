@@ -1,0 +1,47 @@
+.main {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 4rem;
+}
+
+.title {
+  font-size: 1.6rem;
+  margin: 0 0 1.25rem;
+}
+
+.uploadSection {
+  margin-bottom: 2.5rem;
+  padding-bottom: 2rem;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.pagination button {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  border: 1px solid #3a3a3a;
+  background: none;
+  color: #f4f4f4;
+  cursor: pointer;
+}
+
+.pagination button:hover:not(:disabled) {
+  border-color: #5a5a5a;
+}
+
+.pagination button:disabled {
+  color: #5a5a5a;
+  cursor: not-allowed;
+}
+
+.pageNumber {
+  font-size: 0.85rem;
+  color: #9c9c9c;
+}

@@ -4,3 +4,7 @@ openai
 httpx
 python-dotenv
 Pillow
+fastapi
+uvicorn
+gunicorn
+python-multipart

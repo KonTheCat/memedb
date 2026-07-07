@@ -53,3 +53,19 @@ output "openai_key" {
 output "openai_deployment" {
   value = azurerm_cognitive_deployment.gpt4o.name
 }
+
+output "api_app_name" {
+  value = azurerm_linux_web_app.api.name
+}
+
+output "api_url" {
+  value = local.api_url
+}
+
+output "frontend_app_name" {
+  value = azurerm_linux_web_app.frontend.name
+}
+
+output "frontend_url" {
+  value = local.frontend_url
+}

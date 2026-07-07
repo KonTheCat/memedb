@@ -1,0 +1,17 @@
+.button {
+  position: fixed;
+  top: 1rem;
+  right: 1.5rem;
+  font-size: 0.8rem;
+  color: #9c9c9c;
+  background: none;
+  border: 1px solid #3a3a3a;
+  border-radius: 999px;
+  padding: 0.3rem 0.75rem;
+  cursor: pointer;
+}
+
+.button:hover {
+  color: #f4f4f4;
+  border-color: #5a5a5a;
+}

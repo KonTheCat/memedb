@@ -1,0 +1,29 @@
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.button,
+.active {
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  border: 1px solid #3a3a3a;
+  background: transparent;
+  color: #d4d4d4;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.button:hover {
+  border-color: #6d6d6d;
+}
+
+.active {
+  background: #eab308;
+  border-color: #eab308;
+  color: #1a1a1a;
+  font-weight: 600;
+}

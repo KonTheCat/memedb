@@ -10,11 +10,78 @@ def _escape_string_literal(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"')
 
 
+# Every field except visualEmbedding — the doc's schema explicitly calls out
+# excluding the 1024-float array from API responses to keep them small.
+_PUBLIC_FIELDS = (
+    "c.id, c.category, c.blobUrl, c.fileHash, c.uploadedAt, c.originalFilename, "
+    "c.ocrText, c.caption, c.templateName, c.tags, c.sourceUrl, c.searchableText, "
+    "c.embeddingModel, c.embeddingDimensions"
+)
+
+
 class CosmosService:
     def __init__(self, settings: Settings):
         client = CosmosClient(settings.cosmos_endpoint, credential=settings.cosmos_key)
         database = client.get_database_client(settings.cosmos_database)
         self._container = database.get_container_client(settings.cosmos_container)
+
+    def get_by_id(self, doc_id: str) -> dict | None:
+        query = f"SELECT {_PUBLIC_FIELDS} FROM c WHERE c.id = @id"
+        items = list(
+            self._container.query_items(
+                query=query,
+                parameters=[{"name": "@id", "value": doc_id}],
+                enable_cross_partition_query=True,
+            )
+        )
+        return items[0] if items else None
+
+    def list_memes(self, category: str | None, limit: int, offset: int) -> list[dict]:
+        where_clause = "WHERE c.category = @category" if category is not None else ""
+        query = f"SELECT {_PUBLIC_FIELDS} FROM c {where_clause} OFFSET @offset LIMIT @limit"
+        parameters = [
+            {"name": "@offset", "value": offset},
+            {"name": "@limit", "value": limit},
+        ]
+        if category is not None:
+            parameters.append({"name": "@category", "value": category})
+        return list(
+            self._container.query_items(
+                query=query,
+                parameters=parameters,
+                enable_cross_partition_query=True,
+            )
+        )
+
+    def count_memes(self, category: str | None) -> int:
+        where_clause = "WHERE c.category = @category" if category is not None else ""
+        query = f"SELECT VALUE COUNT(1) FROM c {where_clause}"
+        parameters = [{"name": "@category", "value": category}] if category is not None else []
+        results = list(
+            self._container.query_items(
+                query=query,
+                parameters=parameters,
+                enable_cross_partition_query=True,
+            )
+        )
+        return results[0] if results else 0
+
+    def delete_meme(self, doc_id: str, category: str) -> None:
+        self._container.delete_item(item=doc_id, partition_key=category)
+
+    def get_full_by_id(self, doc_id: str, category: str) -> dict:
+        return self._container.read_item(item=doc_id, partition_key=category)
+
+    def replace_meme(self, doc: dict, previous_category: str) -> None:
+        # `category` is the partition key, which Cosmos DB treats as
+        # immutable on an item — moving an item to a new partition key
+        # value requires deleting it under the old key and recreating it
+        # under the new one rather than an in-place replace.
+        if doc["category"] != previous_category:
+            self._container.create_item(doc)
+            self._container.delete_item(item=doc["id"], partition_key=previous_category)
+        else:
+            self._container.replace_item(item=doc["id"], body=doc)
 
     def find_by_hash(self, file_hash: str) -> dict | None:
         query = "SELECT c.id, c.blobUrl FROM c WHERE c.fileHash = @hash"

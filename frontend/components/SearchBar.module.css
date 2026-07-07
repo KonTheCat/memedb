@@ -1,0 +1,76 @@
+.wrapper {
+  margin-bottom: 1rem;
+}
+
+.toggle {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.tab,
+.activeTab {
+  padding: 0.4rem 1rem;
+  border-radius: 6px;
+  border: 1px solid #3a3a3a;
+  background: transparent;
+  color: #d4d4d4;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.activeTab {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: white;
+  font-weight: 600;
+}
+
+.textForm {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.input {
+  flex: 1;
+  padding: 0.65rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid #3a3a3a;
+  background: #1c1c1c;
+  color: #f4f4f4;
+  font-size: 1rem;
+}
+
+.input:focus {
+  outline: 2px solid #2563eb;
+}
+
+.submit {
+  padding: 0.65rem 1.4rem;
+  border-radius: 8px;
+  border: none;
+  background: #2563eb;
+  color: white;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submit:hover {
+  background: #1d4ed8;
+}
+
+.dropzone,
+.dropzoneActive {
+  border: 2px dashed #3a3a3a;
+  border-radius: 10px;
+  padding: 2rem;
+  text-align: center;
+  color: #9c9c9c;
+  cursor: pointer;
+}
+
+.dropzoneActive {
+  border-color: #2563eb;
+  color: #d4d4d4;
+  background: rgba(37, 99, 235, 0.08);
+}

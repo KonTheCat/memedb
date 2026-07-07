@@ -1,0 +1,106 @@
+.card {
+  position: relative;
+  border: 1px solid #2e2e2e;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #161616;
+  display: flex;
+  flex-direction: column;
+}
+
+.link {
+  display: flex;
+  flex-direction: column;
+  color: inherit;
+}
+
+.deleteButton {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  z-index: 1;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 999px;
+  border: none;
+  background: rgba(0, 0, 0, 0.6);
+  color: #f4f4f4;
+  font-size: 0.8rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.deleteButton:hover {
+  background: #dc2626;
+}
+
+.imageWrapper {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  background: #0d0d0d;
+}
+
+.image {
+  object-fit: contain;
+}
+
+.body {
+  padding: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.headerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+
+.template {
+  font-weight: 600;
+  font-size: 0.95rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.similarity {
+  font-size: 0.75rem;
+  color: #34d399;
+  flex-shrink: 0;
+}
+
+.category {
+  font-size: 0.75rem;
+  color: #9c9c9c;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.text {
+  font-size: 0.85rem;
+  color: #d4d4d4;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.15rem;
+}
+
+.tag {
+  font-size: 0.7rem;
+  background: #262626;
+  color: #b4b4b4;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+}

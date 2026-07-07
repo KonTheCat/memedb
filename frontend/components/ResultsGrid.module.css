@@ -1,0 +1,17 @@
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 1rem;
+}
+
+.message {
+  color: #9c9c9c;
+  padding: 2rem 0;
+  text-align: center;
+}
+
+.error {
+  color: #f87171;
+  padding: 2rem 0;
+  text-align: center;
+}

@@ -27,3 +27,27 @@ variable "openai_deployment_name" {
   type        = string
   default     = "gpt-5.1"
 }
+
+variable "location_app" {
+  description = "Region for the API/frontend App Service plans (separate from location_data - quota for App Service isn't available in every region)."
+  type        = string
+  default     = "westcentralus"
+}
+
+variable "environment" {
+  description = "Deployment environment name, used in App Service resource naming/tagging (e.g. \"prod\", \"dev\")."
+  type        = string
+  default     = "prod"
+}
+
+variable "app_service_sku" {
+  description = "SKU for the API and frontend App Service plans."
+  type        = string
+  default     = "B1"
+}
+
+variable "app_password" {
+  description = "Shared password required to use the app. Pass via TF_VAR_app_password or -var, never commit it in a tfvars file."
+  type        = string
+  sensitive   = true
+}

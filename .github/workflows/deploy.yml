@@ -1,0 +1,75 @@
+name: Deploy
+
+on:
+  push:
+    branches: ["**"]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to deploy"
+        type: choice
+        options: [dev, prod]
+        default: dev
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod' || 'dev') }}
+    concurrency:
+      group: deploy-${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod' || 'dev') }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Resolve app names
+        id: apps
+        shell: bash
+        run: |
+          RG="${{ vars.RESOURCE_GROUP }}"
+          API_APP=$(az webapp list -g "$RG" --query "[?tags.role=='api'].name | [0]" -o tsv)
+          WEB_APP=$(az webapp list -g "$RG" --query "[?tags.role=='frontend'].name | [0]" -o tsv)
+          if [ -z "$API_APP" ] || [ -z "$WEB_APP" ]; then
+            echo "Could not find api/frontend web apps (tagged role=api/frontend) in resource group '$RG'." >&2
+            exit 1
+          fi
+          echo "resource_group=$RG" >> "$GITHUB_OUTPUT"
+          echo "api_app=$API_APP" >> "$GITHUB_OUTPUT"
+          echo "web_app=$WEB_APP" >> "$GITHUB_OUTPUT"
+
+      - name: Package API
+        shell: bash
+        run: zip -r api.zip memedb requirements.txt
+
+      - name: Deploy API
+        shell: bash
+        run: |
+          az webapp deploy \
+            --resource-group "${{ steps.apps.outputs.resource_group }}" \
+            --name "${{ steps.apps.outputs.api_app }}" \
+            --src-path api.zip \
+            --type zip
+
+      - name: Package frontend
+        shell: bash
+        working-directory: frontend
+        run: zip -r ../frontend.zip . -x "node_modules/*" ".next/*"
+
+      - name: Deploy frontend
+        shell: bash
+        run: |
+          az webapp deploy \
+            --resource-group "${{ steps.apps.outputs.resource_group }}" \
+            --name "${{ steps.apps.outputs.web_app }}" \
+            --src-path frontend.zip \
+            --type zip

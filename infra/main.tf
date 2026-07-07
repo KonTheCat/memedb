@@ -238,6 +238,7 @@ resource "azurerm_linux_web_app" "api" {
     ALLOWED_ORIGINS            = local.frontend_url
 
     SCM_DO_BUILD_DURING_DEPLOYMENT = "true"
+    ENABLE_ORYX_BUILD              = "true"
   }
 }
 
@@ -265,10 +266,15 @@ resource "azurerm_linux_web_app" "frontend" {
 
   # NEXT_PUBLIC_* vars are baked in at build time — Oryx exposes app_settings
   # as env vars during the build it runs on deploy, so this still works.
+  #
+  # No WEBSITES_PORT here deliberately: that setting is for custom containers.
+  # The blessed Node image always exposes 8080 and injects PORT=8080, which
+  # `next start` honors automatically - setting WEBSITES_PORT to anything
+  # else here would make the platform wait on a port nothing listens on.
   app_settings = {
     NEXT_PUBLIC_API_BASE_URL = local.api_url
-    WEBSITES_PORT            = "3000"
 
     SCM_DO_BUILD_DURING_DEPLOYMENT = "true"
+    ENABLE_ORYX_BUILD              = "true"
   }
 }

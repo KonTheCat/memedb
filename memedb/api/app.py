@@ -1,11 +1,11 @@
 import os
 from functools import lru_cache
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 
-from memedb.api.schemas import IngestResponse, MemeResponse, SearchResultItem, TextSearchRequest, UpdateMemeRequest
+from memedb.api.schemas import IngestResponse, MemeResponse, PublicMemeResponse, SearchResultItem, TextSearchRequest, UpdateMemeRequest
 from memedb.config import Settings, load_settings
 from memedb.models import VALID_CATEGORIES
 from memedb.pipeline import (
@@ -32,7 +32,7 @@ def verify_password(x_app_password: str | None = Header(None), settings: Setting
         raise HTTPException(status_code=401, detail="invalid or missing password")
 
 
-app = FastAPI(title="MemeDB API", dependencies=[Depends(verify_password)])
+app = FastAPI(title="MemeDB API")
 
 _allowed_origins = [
     origin.strip()
@@ -46,6 +46,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# All routes that require authentication go on this router
+protected = APIRouter(dependencies=[Depends(verify_password)])
 
 
 @lru_cache
@@ -73,14 +76,14 @@ def _validate_category(category: str) -> None:
         raise HTTPException(status_code=400, detail=f"invalid category: {category}")
 
 
-@app.get("/auth/check")
+@protected.get("/auth/check")
 def auth_check() -> dict:
-    # if this handler runs at all, the `verify_password` app-level dependency already
+    # if this handler runs at all, the router-level verify_password dependency already
     # confirmed the caller's X-App-Password header is correct
     return {"ok": True}
 
 
-@app.post("/memes", response_model=IngestResponse, status_code=201)
+@protected.post("/memes", response_model=IngestResponse, status_code=201)
 async def create_meme(
     image: UploadFile = File(...),
     category: str = Form(...),
@@ -117,7 +120,7 @@ async def create_meme(
     return IngestResponse(id=doc.id, blobUrl=doc.blobUrl)
 
 
-@app.post("/search/text", response_model=list[SearchResultItem])
+@protected.post("/search/text", response_model=list[SearchResultItem])
 def search_text(
     body: TextSearchRequest,
     vision_service: VisionService = Depends(get_vision_service),
@@ -128,7 +131,7 @@ def search_text(
     return search_by_text(body.query, body.category, body.topK, vision_service, cosmos_service)
 
 
-@app.post("/search/image", response_model=list[SearchResultItem])
+@protected.post("/search/image", response_model=list[SearchResultItem])
 async def search_image(
     image: UploadFile = File(...),
     topK: int = Form(10),
@@ -146,7 +149,7 @@ async def search_image(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@app.get("/memes/count")
+@protected.get("/memes/count")
 def count_memes(
     category: str | None = None,
     cosmos_service: CosmosService = Depends(get_cosmos_service),
@@ -156,7 +159,7 @@ def count_memes(
     return {"count": cosmos_service.count_memes(category)}
 
 
-@app.post("/memes/{meme_id}/view", status_code=204)
+@protected.post("/memes/{meme_id}/view", status_code=204)
 def record_view(
     meme_id: str,
     cosmos_service: CosmosService = Depends(get_cosmos_service),
@@ -168,7 +171,7 @@ def record_view(
     return Response(status_code=204)
 
 
-@app.get("/memes/{meme_id}", response_model=MemeResponse)
+@protected.get("/memes/{meme_id}", response_model=MemeResponse)
 def get_meme(
     meme_id: str,
     cosmos_service: CosmosService = Depends(get_cosmos_service),
@@ -179,7 +182,7 @@ def get_meme(
     return doc
 
 
-@app.get("/memes/{meme_id}/image")
+@protected.get("/memes/{meme_id}/image")
 def get_meme_image(
     meme_id: str,
     blob_service: BlobService = Depends(get_blob_service),
@@ -193,7 +196,7 @@ def get_meme_image(
     return Response(content=data, media_type=content_type)
 
 
-@app.get("/memes", response_model=list[MemeResponse])
+@protected.get("/memes", response_model=list[MemeResponse])
 def list_memes(
     category: str | None = None,
     limit: int = 20,
@@ -205,7 +208,7 @@ def list_memes(
     return cosmos_service.list_memes(category, limit, offset)
 
 
-@app.patch("/memes/{meme_id}", response_model=MemeResponse)
+@protected.patch("/memes/{meme_id}", response_model=MemeResponse)
 def update_meme(
     meme_id: str,
     body: UpdateMemeRequest,
@@ -221,7 +224,7 @@ def update_meme(
     return update_meme_fields(meme_id, doc["category"], updates, cosmos_service)
 
 
-@app.delete("/memes/{meme_id}", status_code=204)
+@protected.delete("/memes/{meme_id}", status_code=204)
 def delete_meme(
     meme_id: str,
     blob_service: BlobService = Depends(get_blob_service),
@@ -234,3 +237,17 @@ def delete_meme(
     cosmos_service.delete_meme(meme_id, doc["category"])
     blob_service.delete_image(blob_name_from_url(doc["blobUrl"]))
     return Response(status_code=204)
+
+
+app.include_router(protected)
+
+
+@app.get("/memes/{meme_id}/public", response_model=PublicMemeResponse)
+def get_meme_public(
+    meme_id: str,
+    cosmos_service: CosmosService = Depends(get_cosmos_service),
+) -> dict:
+    doc = cosmos_service.get_by_id(meme_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="meme not found")
+    return doc

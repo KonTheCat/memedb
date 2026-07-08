@@ -41,6 +41,19 @@ export interface IngestResponse {
   blobUrl: string;
 }
 
+export interface PublicMemeResponse {
+  id: string;
+  blobUrl: string;
+  caption: string;
+  templateName: string;
+  tags: string[];
+  category: string;
+  uploadedAt: string;
+  ocrText: string;
+  sourceUrl: string;
+  viewCount: number;
+}
+
 export interface UpdateMemePayload {
   category?: string;
   templateName?: string;
@@ -146,6 +159,13 @@ export function recordView(id: string): Promise<void> {
     method: "POST",
     headers: authHeaders(),
   }).then((res) => handle<void>(res));
+}
+
+export function getPublicMeme(id: string): Promise<PublicMemeResponse> {
+  return fetch(`${API_BASE_URL}/memes/${id}/public`).then((res) => {
+    if (!res.ok) throw new ApiError(res.status, res.statusText);
+    return res.json();
+  });
 }
 
 export function ingestMeme(

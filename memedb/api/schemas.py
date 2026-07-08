@@ -41,6 +41,19 @@ class TextSearchRequest(BaseModel):
     category: str | None = None
 
 
+class PublicMemeResponse(BaseModel):
+    id: str
+    blobUrl: str
+    caption: str
+    templateName: str
+    tags: list[str]
+    category: str
+    uploadedAt: str
+    ocrText: str
+    sourceUrl: str
+    viewCount: int = 0
+
+
 class UpdateMemeRequest(BaseModel):
     category: str | None = None
     templateName: str | None = None

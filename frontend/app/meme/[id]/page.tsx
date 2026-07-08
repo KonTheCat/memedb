@@ -28,6 +28,7 @@ export default function MemeDetailPage() {
 
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const imageSrc = useAuthedImage(id);
 
@@ -86,6 +87,13 @@ export default function MemeDetailPage() {
     } finally {
       setSaving(false);
     }
+  }
+
+  function handleCopyShareLink() {
+    navigator.clipboard.writeText(`${window.location.origin}/share/${id}`).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
   }
 
   async function handleDelete() {
@@ -164,6 +172,9 @@ export default function MemeDetailPage() {
         <div className={styles.actions}>
           <button type="submit" disabled={saving}>
             {saving ? "Saving…" : "Save changes"}
+          </button>
+          <button type="button" className={styles.shareButton} onClick={handleCopyShareLink}>
+            {copied ? "Copied!" : "Copy share link"}
           </button>
           <button type="button" className={styles.deleteButton} onClick={handleDelete}>
             Delete meme

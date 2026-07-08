@@ -21,7 +21,7 @@ resource "azurerm_storage_account" "images" {
   account_replication_type        = "LRS"
   account_kind                    = "StorageV2"
   min_tls_version                 = "TLS1_2"
-  allow_nested_items_to_be_public = false
+  allow_nested_items_to_be_public = true
 }
 
 resource "azurerm_storage_container" "memes" {

@@ -13,6 +13,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 FRONTEND_DIR = ROOT / "frontend"
 
+_venv_python = ROOT / ".venv" / ("Scripts" if os.name == "nt" else "bin") / "python"
+PYTHON = str(_venv_python) if _venv_python.exists() else sys.executable
+
 
 def _popen(args: list[str], cwd: Path) -> subprocess.Popen:
     creationflags = subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0
@@ -41,8 +44,8 @@ def main() -> None:
     if npm is None:
         sys.exit("npm not found on PATH")
 
-    backend = _popen([sys.executable, "-m", "uvicorn", "memedb.api.app:app", "--reload"], cwd=ROOT)
-    frontend = _popen([npm, "start"], cwd=FRONTEND_DIR)
+    backend = _popen([PYTHON, "-m", "uvicorn", "memedb.api.app:app", "--reload"], cwd=ROOT)
+    frontend = _popen([npm, "run", "dev"], cwd=FRONTEND_DIR)
 
     try:
         while True:

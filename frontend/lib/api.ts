@@ -22,6 +22,7 @@ export interface MemeResponse {
   searchableText: string;
   embeddingModel: string;
   embeddingDimensions: number;
+  viewCount: number;
 }
 
 export interface SearchResultItem {
@@ -138,6 +139,13 @@ export function searchImage(file: File, category: string | null, topK = 12): Pro
   return fetch(`${API_BASE_URL}/search/image`, { method: "POST", headers: authHeaders(), body: form }).then((res) =>
     handle<SearchResultItem[]>(res),
   );
+}
+
+export function recordView(id: string): Promise<void> {
+  return fetch(`${API_BASE_URL}/memes/${id}/view`, {
+    method: "POST",
+    headers: authHeaders(),
+  }).then((res) => handle<void>(res));
 }
 
 export function ingestMeme(

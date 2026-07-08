@@ -156,6 +156,18 @@ def count_memes(
     return {"count": cosmos_service.count_memes(category)}
 
 
+@app.post("/memes/{meme_id}/view", status_code=204)
+def record_view(
+    meme_id: str,
+    cosmos_service: CosmosService = Depends(get_cosmos_service),
+) -> Response:
+    doc = cosmos_service.get_by_id(meme_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="meme not found")
+    cosmos_service.increment_view_count(meme_id, doc["category"])
+    return Response(status_code=204)
+
+
 @app.get("/memes/{meme_id}", response_model=MemeResponse)
 def get_meme(
     meme_id: str,

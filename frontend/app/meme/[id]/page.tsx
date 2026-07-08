@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { ApiError, deleteMeme, getMeme, updateMeme, type MemeResponse } from "@/lib/api";
+import { ApiError, deleteMeme, getMeme, recordView, updateMeme, type MemeResponse } from "@/lib/api";
 import { CATEGORIES } from "@/lib/categories";
 import { useAuthedImage } from "@/lib/useAuthedImage";
 import LogoutButton from "@/components/LogoutButton";
@@ -40,6 +40,7 @@ export default function MemeDetailPage() {
       .then((doc) => {
         if (cancelled) return;
         setMeme(doc);
+        recordView(id);
         setCategory(doc.category);
         setTemplateName(doc.templateName);
         setCaption(doc.caption);
@@ -177,6 +178,8 @@ export default function MemeDetailPage() {
       </form>
 
       <dl className={styles.meta}>
+        <dt>Views</dt>
+        <dd>{meme.viewCount}</dd>
         <dt>Original filename</dt>
         <dd>{meme.originalFilename}</dd>
         <dt>Uploaded</dt>

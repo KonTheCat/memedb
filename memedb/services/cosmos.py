@@ -15,7 +15,7 @@ def _escape_string_literal(value: str) -> str:
 _PUBLIC_FIELDS = (
     "c.id, c.category, c.blobUrl, c.fileHash, c.uploadedAt, c.originalFilename, "
     "c.ocrText, c.caption, c.templateName, c.tags, c.sourceUrl, c.searchableText, "
-    "c.embeddingModel, c.embeddingDimensions"
+    "c.embeddingModel, c.embeddingDimensions, c.viewCount"
 )
 
 
@@ -96,6 +96,13 @@ class CosmosService:
 
     def upsert_meme(self, doc: MemeDocument) -> None:
         self._container.upsert_item(doc.to_dict())
+
+    def increment_view_count(self, doc_id: str, category: str) -> None:
+        self._container.patch_item(
+            item=doc_id,
+            partition_key=category,
+            patch_operations=[{"op": "incr", "path": "/viewCount", "value": 1}],
+        )
 
     def search_hybrid(
         self,

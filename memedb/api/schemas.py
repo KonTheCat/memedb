@@ -16,6 +16,7 @@ class MemeResponse(BaseModel):
     searchableText: str
     embeddingModel: str
     embeddingDimensions: int
+    viewCount: int = 0
 
 
 class IngestResponse(BaseModel):

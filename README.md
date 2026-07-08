@@ -1,11 +1,12 @@
 # memedb
 
-Console app that ingests meme images and makes them searchable. Ingestion
-uploads each image to Blob Storage, generates a 1024-dim visual embedding
-(Azure AI Vision), extracts OCR text/caption/tags (Azure OpenAI), and stores a
-document in Cosmos DB (vector + full-text indexed). Search supports both a
-text query and a query-by-example image, using Cosmos DB hybrid search (RRF
-of vector similarity + BM25 full-text) or pure vector similarity.
+Web app (FastAPI backend + Next.js frontend, plus a CLI) that ingests meme
+images and makes them searchable. Ingestion uploads each image to Blob
+Storage, generates a 1024-dim visual embedding (Azure AI Vision), extracts
+OCR text/caption/tags (Azure OpenAI), and stores a document in Cosmos DB
+(vector + full-text indexed). Search supports both a text query and a
+query-by-example image, using Cosmos DB hybrid search (RRF of vector
+similarity + BM25 full-text) or pure vector similarity.
 
 See `docs/MEME_DB_CLAUDE_CODE.md` for the full application spec this project
 is being built from.

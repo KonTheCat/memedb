@@ -20,7 +20,8 @@ param(
     [string]$GitHubRepo,
     [string]$AppName = "memedb-github-actions",
     [string]$ProdResourceGroup = "memedb",
-    [string]$DevResourceGroup = "dev-memedb"
+    [string]$DevResourceGroup = "dev-memedb",
+    [string]$SharedAcrId = "/subscriptions/a7edb0c9-d49d-4c7c-a3d7-776c14e253d2/resourceGroups/shared-global/providers/Microsoft.ContainerRegistry/registries/sharedacra7edb0c9"
 )
 
 $ErrorActionPreference = "Stop"
@@ -93,6 +94,18 @@ function Grant-ResourceGroupContributor($ResourceGroupName) {
 
 Grant-ResourceGroupContributor -ResourceGroupName $ProdResourceGroup
 Grant-ResourceGroupContributor -ResourceGroupName $DevResourceGroup
+
+function Grant-AcrPush {
+    Write-Host "Granting AcrPush on the shared container registry to service principal..."
+    az role assignment create `
+        --assignee-object-id $sp.id `
+        --assignee-principal-type ServicePrincipal `
+        --role "AcrPush" `
+        --scope $SharedAcrId `
+        -o none
+}
+
+Grant-AcrPush
 
 Write-Host ""
 Write-Host "Now set these in GitHub (repo Settings > Environments > dev / prod):"

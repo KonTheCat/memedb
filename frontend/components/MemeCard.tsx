@@ -25,7 +25,7 @@ export default function MemeCard({ meme, onDelete }: Props) {
       <button className={styles.deleteButton} onClick={handleDelete} aria-label="Delete meme" type="button">
         ✕
       </button>
-      <Link href={`/meme/${meme.id}`} className={styles.link}>
+      <Link href={`/meme?id=${meme.id}`} className={styles.link}>
         <div className={styles.imageWrapper}>
           {src && (
             <Image

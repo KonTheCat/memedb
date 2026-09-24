@@ -61,48 +61,39 @@ jobs:
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Resolve app names
+      - name: Resolve environment
+        id: env
+        shell: bash
+        run: echo "name=${{ github.event.inputs.environment || (github.ref == 'refs/heads/main' && 'prod' || 'dev') }}" >> "$GITHUB_OUTPUT"
+
+      - name: Resolve app name
         id: apps
         shell: bash
         run: |
           RG="${{ vars.RESOURCE_GROUP }}"
-          API_APP=$(az webapp list -g "$RG" --query "[?tags.role=='api'].name | [0]" -o tsv)
-          WEB_APP=$(az webapp list -g "$RG" --query "[?tags.role=='frontend'].name | [0]" -o tsv)
-          if [ -z "$API_APP" ] || [ -z "$WEB_APP" ]; then
-            echo "Could not find api/frontend web apps (tagged role=api/frontend) in resource group '$RG'." >&2
+          APP=$(az webapp list -g "$RG" --query "[0].name" -o tsv)
+          if [ -z "$APP" ]; then
+            echo "Could not find a web app in resource group '$RG'." >&2
             exit 1
           fi
           echo "resource_group=$RG" >> "$GITHUB_OUTPUT"
-          echo "api_app=$API_APP" >> "$GITHUB_OUTPUT"
-          echo "web_app=$WEB_APP" >> "$GITHUB_OUTPUT"
+          echo "app=$APP" >> "$GITHUB_OUTPUT"
 
-      - name: Package API
+      - name: ACR login
         shell: bash
-        run: zip -r api.zip memedb requirements.txt
+        run: az acr login --name sharedacra7edb0c9
 
-      - name: Deploy API
+      - name: Build image
         shell: bash
-        run: |
-          az webapp deploy \
-            --resource-group "${{ steps.apps.outputs.resource_group }}" \
-            --name "${{ steps.apps.outputs.api_app }}" \
-            --src-path api.zip \
-            --type zip \
-            --async true \
-            --track-status
+        run: docker build -t sharedacra7edb0c9.azurecr.io/memedb/app:${{ steps.env.outputs.name }} .
 
-      - name: Package frontend
+      - name: Push image
         shell: bash
-        working-directory: frontend
-        run: zip -r ../frontend.zip . -x "node_modules/*" ".next/*"
+        run: docker push sharedacra7edb0c9.azurecr.io/memedb/app:${{ steps.env.outputs.name }}
 
-      - name: Deploy frontend
+      - name: Restart web app
         shell: bash
         run: |
-          az webapp deploy \
+          az webapp restart \
             --resource-group "${{ steps.apps.outputs.resource_group }}" \
-            --name "${{ steps.apps.outputs.web_app }}" \
-            --src-path frontend.zip \
-            --type zip \
-            --async true \
-            --track-status
+            --name "${{ steps.apps.outputs.app }}"

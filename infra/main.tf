@@ -184,40 +184,52 @@ resource "azurerm_cognitive_deployment" "gpt4o" {
 }
 
 # ---------------------------------------------------------------------------
-# App Service — API (FastAPI, code deploy) + frontend (Next.js, code deploy)
-#
-# Names/URLs are computed locally (not read back off the resource) so the two
-# web apps don't end up depending on each other's computed attributes, which
-# would form a dependency cycle since each needs the other's URL.
+# App Service — single container per environment (FastAPI serving the
+# pre-built static frontend), on the shared App Service Plan.
 # ---------------------------------------------------------------------------
 
-locals {
-  api_app_name      = "memedb-api-${var.environment}-${random_string.suffix.result}"
-  frontend_app_name = "memedb-web-${var.environment}-${random_string.suffix.result}"
-  api_url           = "https://${local.api_app_name}.azurewebsites.net"
-  frontend_url      = "https://${local.frontend_app_name}.azurewebsites.net"
+data "azurerm_service_plan" "shared" {
+  name                = "shared-linux-asp-west-us-3"
+  resource_group_name = "shared-global"
 }
 
-resource "azurerm_service_plan" "api" {
-  name                = "memedb-api-plan-${var.environment}"
-  resource_group_name = data.azurerm_resource_group.main.name
-  location            = var.location_app
-  os_type             = "Linux"
-  sku_name            = var.app_service_sku
+data "azurerm_container_registry" "shared" {
+  name                = "sharedacra7edb0c9"
+  resource_group_name = "shared-global"
 }
 
-resource "azurerm_linux_web_app" "api" {
-  name                = local.api_app_name
+resource "azurerm_user_assigned_identity" "app" {
+  name                = "memedb-${var.environment}-identity"
   resource_group_name = data.azurerm_resource_group.main.name
   location            = var.location_app
-  service_plan_id     = azurerm_service_plan.api.id
-  tags                = { environment = var.environment, role = "api" }
+}
+
+resource "azurerm_role_assignment" "acr_pull" {
+  scope                = data.azurerm_container_registry.shared.id
+  role_definition_name = "AcrPull"
+  principal_id         = azurerm_user_assigned_identity.app.principal_id
+}
+
+resource "azurerm_linux_web_app" "app" {
+  name                = "memedb-${var.environment}-${random_string.suffix.result}"
+  resource_group_name = data.azurerm_resource_group.main.name
+  location            = var.location_app
+  service_plan_id     = data.azurerm_service_plan.shared.id
+  tags                = { environment = var.environment }
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.app.id]
+  }
 
   site_config {
+    container_registry_use_managed_identity       = true
+    container_registry_managed_identity_client_id = azurerm_user_assigned_identity.app.client_id
+
     application_stack {
-      python_version = "3.11"
+      docker_image_name   = "memedb/app:${var.environment}"
+      docker_registry_url = "https://${data.azurerm_container_registry.shared.login_server}"
     }
-    app_command_line = "gunicorn -w 2 -k uvicorn.workers.UvicornWorker --bind=0.0.0.0:8000 memedb.api.app:app"
   }
 
   app_settings = {
@@ -235,46 +247,7 @@ resource "azurerm_linux_web_app" "api" {
     BLOB_ACCOUNT_KEY           = azurerm_storage_account.images.primary_access_key
     BLOB_CONTAINER             = azurerm_storage_container.memes.name
     APP_PASSWORD               = var.app_password
-    ALLOWED_ORIGINS            = local.frontend_url
 
-    SCM_DO_BUILD_DURING_DEPLOYMENT = "true"
-    ENABLE_ORYX_BUILD              = "true"
-  }
-}
-
-resource "azurerm_service_plan" "frontend" {
-  name                = "memedb-web-plan-${var.environment}"
-  resource_group_name = data.azurerm_resource_group.main.name
-  location            = var.location_app
-  os_type             = "Linux"
-  sku_name            = var.app_service_sku
-}
-
-resource "azurerm_linux_web_app" "frontend" {
-  name                = local.frontend_app_name
-  resource_group_name = data.azurerm_resource_group.main.name
-  location            = var.location_app
-  service_plan_id     = azurerm_service_plan.frontend.id
-  tags                = { environment = var.environment, role = "frontend" }
-
-  site_config {
-    application_stack {
-      node_version = "20-lts"
-    }
-    app_command_line = "npm run start"
-  }
-
-  # NEXT_PUBLIC_* vars are baked in at build time — Oryx exposes app_settings
-  # as env vars during the build it runs on deploy, so this still works.
-  #
-  # No WEBSITES_PORT here deliberately: that setting is for custom containers.
-  # The blessed Node image always exposes 8080 and injects PORT=8080, which
-  # `next start` honors automatically - setting WEBSITES_PORT to anything
-  # else here would make the platform wait on a port nothing listens on.
-  app_settings = {
-    NEXT_PUBLIC_API_BASE_URL = local.api_url
-
-    SCM_DO_BUILD_DURING_DEPLOYMENT = "true"
-    ENABLE_ORYX_BUILD              = "true"
+    WEBSITES_PORT = "8000"
   }
 }

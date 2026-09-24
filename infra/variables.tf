@@ -29,21 +29,15 @@ variable "openai_deployment_name" {
 }
 
 variable "location_app" {
-  description = "Region for the API/frontend App Service plans (separate from location_data - quota for App Service isn't available in every region)."
+  description = "Region for the web app and its user-assigned identity - must match the shared App Service Plan's region (West US 3)."
   type        = string
-  default     = "westcentralus"
+  default     = "westus3"
 }
 
 variable "environment" {
   description = "Deployment environment name, used in App Service resource naming/tagging (e.g. \"prod\", \"dev\")."
   type        = string
   default     = "prod"
-}
-
-variable "app_service_sku" {
-  description = "SKU for the API and frontend App Service plans."
-  type        = string
-  default     = "B1"
 }
 
 variable "app_password" {

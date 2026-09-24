@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { ApiError, deleteMeme, getMeme, updateMeme, type MemeResponse } from "@/lib/api";
@@ -10,10 +10,8 @@ import { useAuthedImage } from "@/lib/useAuthedImage";
 import LogoutButton from "@/components/LogoutButton";
 import styles from "./page.module.css";
 
-export default function MemeDetailPage() {
-  const params = useParams<{ id: string }>();
+function MemeDetail({ id }: { id: string }) {
   const router = useRouter();
-  const id = params.id;
 
   const [meme, setMeme] = useState<MemeResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -185,5 +183,22 @@ export default function MemeDetailPage() {
         <dd className={styles.hash}>{meme.fileHash}</dd>
       </dl>
     </main>
+  );
+}
+
+function MemeDetailPage() {
+  const searchParams = useSearchParams();
+  const id = searchParams.get("id");
+
+  if (!id) return <p className={styles.error}>No meme id given.</p>;
+
+  return <MemeDetail id={id} />;
+}
+
+export default function MemePage() {
+  return (
+    <Suspense fallback={<p className={styles.message}>Loading…</p>}>
+      <MemeDetailPage />
+    </Suspense>
   );
 }

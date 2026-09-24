@@ -1,9 +1,11 @@
 import os
 from functools import lru_cache
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
+from fastapi.staticfiles import StaticFiles
 
 from memedb.api.schemas import IngestResponse, MemeResponse, SearchResultItem, TextSearchRequest, UpdateMemeRequest
 from memedb.config import Settings, load_settings
@@ -222,3 +224,11 @@ def delete_meme(
     cosmos_service.delete_meme(meme_id, doc["category"])
     blob_service.delete_image(blob_name_from_url(doc["blobUrl"]))
     return Response(status_code=204)
+
+
+# Mounted last so it doesn't shadow the API routes above. Only set in the
+# container image (see Dockerfile) - local `uvicorn` runs without STATIC_DIR
+# keep serving the API only, with the frontend run separately via `next dev`.
+_static_dir = os.environ.get("STATIC_DIR")
+if _static_dir and Path(_static_dir).is_dir():
+    app.mount("/", StaticFiles(directory=_static_dir, html=True), name="frontend")

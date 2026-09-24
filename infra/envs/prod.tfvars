@@ -1,2 +1,5 @@
 resource_group_name = "memedb"
 environment         = "prod"
+entra_tenant_id = "9c61b6ae-0dc4-4ddc-8206-a6c99e120945"
+entra_tenant_subdomain = "memedbcustomers"
+entra_client_id = "09e1eb54-6778-4d11-964b-9d26bd9c11f4"

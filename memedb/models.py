@@ -33,6 +33,7 @@ class MemeDocument:
     visualEmbedding: list[float]
     embeddingModel: str
     embeddingDimensions: int = field(default=1024)
+    viewCount: int = field(default=0)
 
     def to_dict(self) -> dict:
         return {
@@ -51,4 +52,5 @@ class MemeDocument:
             "visualEmbedding": self.visualEmbedding,
             "embeddingModel": self.embeddingModel,
             "embeddingDimensions": self.embeddingDimensions,
+            "viewCount": self.viewCount,
         }

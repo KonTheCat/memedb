@@ -4,14 +4,16 @@ import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { ApiError, deleteMeme, getMeme, updateMeme, type MemeResponse } from "@/lib/api";
+import { AuthenticatedTemplate, UnauthenticatedTemplate, useMsal } from "@azure/msal-react";
+import { ApiError, deleteMeme, getMeme, imageUrl, recordView, updateMeme, type MemeResponse } from "@/lib/api";
 import { CATEGORIES } from "@/lib/categories";
-import { useAuthedImage } from "@/lib/useAuthedImage";
+import { loginRequest } from "@/lib/msalConfig";
 import LogoutButton from "@/components/LogoutButton";
 import styles from "./page.module.css";
 
 function MemeDetail({ id }: { id: string }) {
   const router = useRouter();
+  const { instance } = useMsal();
 
   const [meme, setMeme] = useState<MemeResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -26,8 +28,7 @@ function MemeDetail({ id }: { id: string }) {
 
   const [saving, setSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<{ kind: "success" | "error"; text: string } | null>(null);
-
-  const imageSrc = useAuthedImage(id);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,6 +39,7 @@ function MemeDetail({ id }: { id: string }) {
       .then((doc) => {
         if (cancelled) return;
         setMeme(doc);
+        recordView(id);
         setCategory(doc.category);
         setTemplateName(doc.templateName);
         setCaption(doc.caption);
@@ -85,6 +87,13 @@ function MemeDetail({ id }: { id: string }) {
     }
   }
 
+  function handleCopyShareLink() {
+    navigator.clipboard.writeText(`${window.location.origin}/share?id=${id}`).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  }
+
   async function handleDelete() {
     if (!window.confirm("Delete this meme? This cannot be undone.")) return;
     try {
@@ -103,22 +112,22 @@ function MemeDetail({ id }: { id: string }) {
 
   return (
     <main className={styles.main}>
-      <LogoutButton />
+      <AuthenticatedTemplate>
+        <LogoutButton />
+      </AuthenticatedTemplate>
       <Link href="/" className={styles.back}>
         ← Back
       </Link>
 
       <div className={styles.imageWrapper}>
-        {imageSrc && (
-          <Image
-            src={imageSrc}
-            alt={meme.templateName || meme.caption || "meme"}
-            fill
-            sizes="(max-width: 700px) 100vw, 700px"
-            className={styles.image}
-            unoptimized
-          />
-        )}
+        <Image
+          src={imageUrl(id)}
+          alt={meme.templateName || meme.caption || "meme"}
+          fill
+          sizes="(max-width: 700px) 100vw, 700px"
+          className={styles.image}
+          unoptimized
+        />
       </div>
 
       <form className={styles.form} onSubmit={handleSave}>
@@ -159,12 +168,24 @@ function MemeDetail({ id }: { id: string }) {
         </label>
 
         <div className={styles.actions}>
-          <button type="submit" disabled={saving}>
-            {saving ? "Saving…" : "Save changes"}
+          <AuthenticatedTemplate>
+            <button type="submit" disabled={saving}>
+              {saving ? "Saving…" : "Save changes"}
+            </button>
+          </AuthenticatedTemplate>
+          <button type="button" className={styles.shareButton} onClick={handleCopyShareLink}>
+            {copied ? "Copied!" : "Copy share link"}
           </button>
-          <button type="button" className={styles.deleteButton} onClick={handleDelete}>
-            Delete meme
-          </button>
+          <AuthenticatedTemplate>
+            <button type="button" className={styles.deleteButton} onClick={handleDelete}>
+              Delete meme
+            </button>
+          </AuthenticatedTemplate>
+          <UnauthenticatedTemplate>
+            <button type="button" onClick={() => instance.loginRedirect(loginRequest)}>
+              Sign in to edit
+            </button>
+          </UnauthenticatedTemplate>
         </div>
 
         {saveMessage && (
@@ -175,6 +196,8 @@ function MemeDetail({ id }: { id: string }) {
       </form>
 
       <dl className={styles.meta}>
+        <dt>Views</dt>
+        <dd>{meme.viewCount}</dd>
         <dt>Original filename</dt>
         <dd>{meme.originalFilename}</dd>
         <dt>Uploaded</dt>

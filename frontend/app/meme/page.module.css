@@ -76,6 +76,11 @@
   cursor: not-allowed;
 }
 
+.shareButton {
+  background: #1e3a5f;
+  color: white;
+}
+
 .deleteButton {
   background: #7f1d1d;
   color: white;

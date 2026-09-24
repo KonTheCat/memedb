@@ -2,10 +2,12 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
+import jwt
+from fastapi import APIRouter, Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
+from jwt import PyJWKClient
 
 from memedb.api.schemas import IngestResponse, MemeResponse, SearchResultItem, TextSearchRequest, UpdateMemeRequest
 from memedb.config import Settings, load_settings
@@ -29,12 +31,37 @@ def get_settings() -> Settings:
     return load_settings()
 
 
-def verify_password(x_app_password: str | None = Header(None), settings: Settings = Depends(get_settings)) -> None:
-    if x_app_password != settings.app_password:
-        raise HTTPException(status_code=401, detail="invalid or missing password")
+@lru_cache
+def get_jwks_client() -> PyJWKClient:
+    settings = get_settings()
+    return PyJWKClient(
+        f"https://{settings.entra_tenant_subdomain}.ciamlogin.com/{settings.entra_tenant_id}/discovery/v2.0/keys"
+    )
 
 
-app = FastAPI(title="MemeDB API", dependencies=[Depends(verify_password)])
+def get_current_user(
+    authorization: str | None = Header(None),
+    settings: Settings = Depends(get_settings),
+) -> dict:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="missing bearer token")
+    token = authorization.removeprefix("Bearer ")
+
+    try:
+        jwks_client = get_jwks_client()
+        signing_key = jwks_client.get_signing_key_from_jwt(token)
+        return jwt.decode(token, signing_key.key, algorithms=["RS256"], audience=settings.entra_client_id)
+    except jwt.PyJWTError as exc:
+        raise HTTPException(status_code=401, detail="invalid token") from exc
+
+
+def require_admin(claims: dict = Depends(get_current_user)) -> dict:
+    if "Admin" not in claims.get("roles", []):
+        raise HTTPException(status_code=403, detail="admin role required")
+    return claims
+
+
+app = FastAPI(title="MemeDB API")
 
 _allowed_origins = [
     origin.strip()
@@ -48,6 +75,12 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Browse/search - anyone can read, no auth required
+public = APIRouter()
+
+# Upload/edit/delete - Entra token with the Admin app role required
+protected = APIRouter(dependencies=[Depends(require_admin)])
 
 
 @lru_cache
@@ -75,14 +108,7 @@ def _validate_category(category: str) -> None:
         raise HTTPException(status_code=400, detail=f"invalid category: {category}")
 
 
-@app.get("/auth/check")
-def auth_check() -> dict:
-    # if this handler runs at all, the `verify_password` app-level dependency already
-    # confirmed the caller's X-App-Password header is correct
-    return {"ok": True}
-
-
-@app.post("/memes", response_model=IngestResponse, status_code=201)
+@protected.post("/memes", response_model=IngestResponse, status_code=201)
 async def create_meme(
     image: UploadFile = File(...),
     category: str = Form(...),
@@ -119,7 +145,7 @@ async def create_meme(
     return IngestResponse(id=doc.id, blobUrl=doc.blobUrl)
 
 
-@app.post("/search/text", response_model=list[SearchResultItem])
+@public.post("/search/text", response_model=list[SearchResultItem])
 def search_text(
     body: TextSearchRequest,
     vision_service: VisionService = Depends(get_vision_service),
@@ -130,7 +156,7 @@ def search_text(
     return search_by_text(body.query, body.category, body.topK, vision_service, cosmos_service)
 
 
-@app.post("/search/image", response_model=list[SearchResultItem])
+@public.post("/search/image", response_model=list[SearchResultItem])
 async def search_image(
     image: UploadFile = File(...),
     topK: int = Form(10),
@@ -148,7 +174,7 @@ async def search_image(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
-@app.get("/memes/count")
+@public.get("/memes/count")
 def count_memes(
     category: str | None = None,
     cosmos_service: CosmosService = Depends(get_cosmos_service),
@@ -158,7 +184,19 @@ def count_memes(
     return {"count": cosmos_service.count_memes(category)}
 
 
-@app.get("/memes/{meme_id}", response_model=MemeResponse)
+@public.post("/memes/{meme_id}/view", status_code=204)
+def record_view(
+    meme_id: str,
+    cosmos_service: CosmosService = Depends(get_cosmos_service),
+) -> Response:
+    doc = cosmos_service.get_by_id(meme_id)
+    if doc is None:
+        raise HTTPException(status_code=404, detail="meme not found")
+    cosmos_service.increment_view_count(meme_id, doc["category"])
+    return Response(status_code=204)
+
+
+@public.get("/memes/{meme_id}", response_model=MemeResponse)
 def get_meme(
     meme_id: str,
     cosmos_service: CosmosService = Depends(get_cosmos_service),
@@ -169,7 +207,7 @@ def get_meme(
     return doc
 
 
-@app.get("/memes/{meme_id}/image")
+@public.get("/memes/{meme_id}/image")
 def get_meme_image(
     meme_id: str,
     blob_service: BlobService = Depends(get_blob_service),
@@ -183,7 +221,7 @@ def get_meme_image(
     return Response(content=data, media_type=content_type)
 
 
-@app.get("/memes", response_model=list[MemeResponse])
+@public.get("/memes", response_model=list[MemeResponse])
 def list_memes(
     category: str | None = None,
     limit: int = 20,
@@ -195,7 +233,7 @@ def list_memes(
     return cosmos_service.list_memes(category, limit, offset)
 
 
-@app.patch("/memes/{meme_id}", response_model=MemeResponse)
+@protected.patch("/memes/{meme_id}", response_model=MemeResponse)
 def update_meme(
     meme_id: str,
     body: UpdateMemeRequest,
@@ -211,7 +249,7 @@ def update_meme(
     return update_meme_fields(meme_id, doc["category"], updates, cosmos_service)
 
 
-@app.delete("/memes/{meme_id}", status_code=204)
+@protected.delete("/memes/{meme_id}", status_code=204)
 def delete_meme(
     meme_id: str,
     blob_service: BlobService = Depends(get_blob_service),
@@ -225,6 +263,9 @@ def delete_meme(
     blob_service.delete_image(blob_name_from_url(doc["blobUrl"]))
     return Response(status_code=204)
 
+
+app.include_router(public)
+app.include_router(protected)
 
 # Mounted last so it doesn't shadow the API routes above. Only set in the
 # container image (see Dockerfile) - local `uvicorn` runs without STATIC_DIR

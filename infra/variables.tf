@@ -40,8 +40,17 @@ variable "environment" {
   default     = "prod"
 }
 
-variable "app_password" {
-  description = "Shared password required to use the app. Pass via TF_VAR_app_password or -var, never commit it in a tfvars file."
+variable "entra_tenant_id" {
+  description = "Entra External ID tenant ID (GUID), created manually in the Entra admin center. Not a secret."
   type        = string
-  sensitive   = true
+}
+
+variable "entra_tenant_subdomain" {
+  description = "Entra External ID tenant subdomain, e.g. \"memedb\" for memedb.ciamlogin.com. Not a secret."
+  type        = string
+}
+
+variable "entra_client_id" {
+  description = "Client ID of the SPA app registration in the Entra tenant, created manually. Not a secret - the SPA has no client secret."
+  type        = string
 }

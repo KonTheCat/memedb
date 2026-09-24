@@ -32,7 +32,9 @@ class Settings:
     blob_account_key: str
     blob_container: str
 
-    app_password: str
+    entra_tenant_id: str
+    entra_tenant_subdomain: str
+    entra_client_id: str
 
 
 def load_settings() -> Settings:
@@ -50,5 +52,7 @@ def load_settings() -> Settings:
         blob_account_name=_require("BLOB_ACCOUNT_NAME"),
         blob_account_key=_require("BLOB_ACCOUNT_KEY"),
         blob_container=_require("BLOB_CONTAINER"),
-        app_password=_require("APP_PASSWORD"),
+        entra_tenant_id=_require("ENTRA_TENANT_ID"),
+        entra_tenant_subdomain=_require("ENTRA_TENANT_SUBDOMAIN"),
+        entra_client_id=_require("ENTRA_CLIENT_ID"),
     )

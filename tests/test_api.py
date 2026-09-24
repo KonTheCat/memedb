@@ -1,19 +1,25 @@
-async def test_auth_check_rejects_missing_password(client):
-    del client.headers["X-App-Password"]
-    response = await client.get("/auth/check")
-    assert response.status_code == 401
+from memedb.api.app import app, get_current_user, require_admin
 
 
-async def test_auth_check_rejects_wrong_password(client):
-    client.headers["X-App-Password"] = "wrong-password"
-    response = await client.get("/auth/check")
-    assert response.status_code == 401
-
-
-async def test_auth_check_accepts_correct_password(client):
-    response = await client.get("/auth/check")
+async def test_list_memes_requires_no_auth(client):
+    response = await client.get("/memes")
     assert response.status_code == 200
-    assert response.json() == {"ok": True}
+
+
+async def test_create_meme_rejects_missing_token(client, app_client):
+    del app.dependency_overrides[get_current_user]
+    del app.dependency_overrides[require_admin]
+    files = {"image": ("doge.png", b"fake-bytes", "image/png")}
+    response = await client.post("/memes", files=files, data={"category": "reaction"})
+    assert response.status_code == 401
+
+
+async def test_create_meme_rejects_non_admin(client, app_client):
+    app.dependency_overrides[get_current_user] = lambda: {"sub": "someone-else", "roles": []}
+    del app.dependency_overrides[require_admin]
+    files = {"image": ("doge.png", b"fake-bytes", "image/png")}
+    response = await client.post("/memes", files=files, data={"category": "reaction"})
+    assert response.status_code == 403
 
 
 async def test_create_meme_returns_201(client):

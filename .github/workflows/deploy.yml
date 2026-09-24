@@ -85,7 +85,11 @@ jobs:
 
       - name: Build image
         shell: bash
-        run: docker build -t sharedacra7edb0c9.azurecr.io/memedb/app:${{ steps.env.outputs.name }} .
+        run: |
+          docker build \
+            --build-arg NEXT_PUBLIC_ENTRA_CLIENT_ID="${{ vars.ENTRA_CLIENT_ID }}" \
+            --build-arg NEXT_PUBLIC_ENTRA_AUTHORITY="${{ vars.ENTRA_AUTHORITY }}" \
+            -t sharedacra7edb0c9.azurecr.io/memedb/app:${{ steps.env.outputs.name }} .
 
       - name: Push image
         shell: bash

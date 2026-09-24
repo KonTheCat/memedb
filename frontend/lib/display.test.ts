@@ -19,6 +19,7 @@ describe("fromMemeResponse", () => {
       searchableText: "such wow a dog looking skeptical doge dog meme",
       embeddingModel: "fake-vision-v1",
       embeddingDimensions: 1024,
+      viewCount: 0,
     };
 
     expect(fromMemeResponse(doc)).toEqual({

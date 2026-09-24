@@ -1,16 +1,17 @@
-export const AUTH_COOKIE = "memedb_auth";
+import { InteractionRequiredAuthError } from "@azure/msal-browser";
+import { loginRequest, msalInstance } from "./msalConfig";
 
-export function getStoredPassword(): string | null {
-  if (typeof document === "undefined") return null;
-  const match = document.cookie.match(new RegExp(`(?:^|; )${AUTH_COOKIE}=([^;]*)`));
-  return match ? decodeURIComponent(match[1]) : null;
-}
+export async function getAccessToken(): Promise<string | null> {
+  const account = msalInstance.getActiveAccount() ?? msalInstance.getAllAccounts()[0];
+  if (!account) return null;
 
-export function storePassword(password: string): void {
-  const maxAge = 60 * 60 * 24 * 30; // 30 days
-  document.cookie = `${AUTH_COOKIE}=${encodeURIComponent(password)}; path=/; max-age=${maxAge}; samesite=lax`;
-}
-
-export function clearStoredPassword(): void {
-  document.cookie = `${AUTH_COOKIE}=; path=/; max-age=0; samesite=lax`;
+  try {
+    const result = await msalInstance.acquireTokenSilent({ ...loginRequest, account });
+    return result.accessToken;
+  } catch (err) {
+    if (err instanceof InteractionRequiredAuthError) {
+      await msalInstance.loginRedirect(loginRequest);
+    }
+    return null;
+  }
 }

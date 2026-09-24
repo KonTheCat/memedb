@@ -1,56 +1,31 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { checkPassword } from "@/lib/api";
-import { storePassword } from "@/lib/auth";
+import { useIsAuthenticated, useMsal } from "@azure/msal-react";
+import { loginRequest } from "@/lib/msalConfig";
 import styles from "./page.module.css";
 
 export default function LoginPage() {
   const router = useRouter();
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [checking, setChecking] = useState(false);
+  const { instance } = useMsal();
+  const isAuthenticated = useIsAuthenticated();
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setChecking(true);
-    setError(null);
-    try {
-      const ok = await checkPassword(password);
-      if (!ok) {
-        setError("Incorrect password.");
-        return;
-      }
-      storePassword(password);
+  useEffect(() => {
+    if (isAuthenticated) {
       router.push("/");
       router.refresh();
-    } catch {
-      setError("Could not reach the server.");
-    } finally {
-      setChecking(false);
     }
-  }
+  }, [isAuthenticated, router]);
 
   return (
     <main className={styles.main}>
-      <form className={styles.form} onSubmit={handleSubmit}>
+      <div className={styles.form}>
         <h1 className={styles.title}>MemeDB</h1>
-        <label className={styles.field}>
-          <span>Password</span>
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            autoFocus
-            required
-          />
-        </label>
-        <button type="submit" disabled={checking}>
-          {checking ? "Checking…" : "Enter"}
+        <button type="button" onClick={() => instance.loginRedirect(loginRequest)}>
+          Sign in
         </button>
-        {error && <p className={styles.error}>{error}</p>}
-      </form>
+      </div>
     </main>
   );
 }

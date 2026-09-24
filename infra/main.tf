@@ -21,13 +21,13 @@ resource "azurerm_storage_account" "images" {
   account_replication_type        = "LRS"
   account_kind                    = "StorageV2"
   min_tls_version                 = "TLS1_2"
-  allow_nested_items_to_be_public = false
+  allow_nested_items_to_be_public = true
 }
 
 resource "azurerm_storage_container" "memes" {
   name                  = "memes"
   storage_account_id    = azurerm_storage_account.images.id
-  container_access_type = "private"
+  container_access_type = "blob"
 }
 
 # ---------------------------------------------------------------------------
@@ -246,7 +246,10 @@ resource "azurerm_linux_web_app" "app" {
     BLOB_ACCOUNT_NAME          = azurerm_storage_account.images.name
     BLOB_ACCOUNT_KEY           = azurerm_storage_account.images.primary_access_key
     BLOB_CONTAINER             = azurerm_storage_container.memes.name
-    APP_PASSWORD               = var.app_password
+    ENTRA_TENANT_ID            = var.entra_tenant_id
+    ENTRA_TENANT_SUBDOMAIN     = var.entra_tenant_subdomain
+    ENTRA_CLIENT_ID            = var.entra_client_id
+    ALLOWED_ORIGINS            = "https://memedb-${var.environment}-${random_string.suffix.result}.azurewebsites.net"
 
     WEBSITES_PORT = "8000"
   }

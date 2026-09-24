@@ -5,9 +5,11 @@ from memedb.api.app import (
     app,
     get_blob_service,
     get_cosmos_service,
+    get_current_user,
     get_openai_service,
     get_settings,
     get_vision_service,
+    require_admin,
 )
 from memedb.config import Settings
 from tests.fakes import FakeBlobService, FakeCosmosService, FakeOpenAIMetadataService, FakeVisionService
@@ -26,8 +28,12 @@ TEST_SETTINGS = Settings(
     blob_account_name="fakeaccount",
     blob_account_key="fake-blob-key",
     blob_container="memes",
-    app_password="test-password",
+    entra_tenant_id="fake-tenant-id",
+    entra_tenant_subdomain="fake-tenant",
+    entra_client_id="fake-client-id",
 )
+
+ADMIN_CLAIMS = {"sub": "admin-user", "roles": ["Admin"]}
 
 
 @pytest.fixture
@@ -47,6 +53,10 @@ def app_client(cosmos_service, blob_service):
     app.dependency_overrides[get_vision_service] = lambda: FakeVisionService()
     app.dependency_overrides[get_openai_service] = lambda: FakeOpenAIMetadataService()
     app.dependency_overrides[get_cosmos_service] = lambda: cosmos_service
+    # Default to an authenticated admin - individual auth tests override
+    # get_current_user/require_admin themselves to exercise 401/403 paths.
+    app.dependency_overrides[get_current_user] = lambda: ADMIN_CLAIMS
+    app.dependency_overrides[require_admin] = lambda: ADMIN_CLAIMS
     yield
     app.dependency_overrides.clear()
 
@@ -54,9 +64,5 @@ def app_client(cosmos_service, blob_service):
 @pytest.fixture
 async def client(app_client):
     transport = ASGITransport(app=app)
-    async with AsyncClient(
-        transport=transport,
-        base_url="http://test",
-        headers={"X-App-Password": TEST_SETTINGS.app_password},
-    ) as ac:
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac

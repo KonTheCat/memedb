@@ -75,6 +75,9 @@ class FakeCosmosService:
     def upsert_meme(self, doc: MemeDocument) -> None:
         self._docs[doc.id] = doc.to_dict()
 
+    def increment_view_count(self, doc_id: str, category: str) -> None:
+        self._docs[doc_id]["viewCount"] = self._docs[doc_id].get("viewCount", 0) + 1
+
     def search_hybrid(
         self,
         query_vector: list[float],

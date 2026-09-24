@@ -40,9 +40,11 @@ environment instead. `tofu init -reconfigure` is what switches which state
 file a given `infra/` checkout is pointed at — run it whenever you switch
 environments in the same shell/checkout.
 
-`app_password` (see below) is a required variable with no default and isn't
-stored in the checked-in `envs/*.tfvars` files. Set it via `TF_VAR_app_password`
-or `-var="app_password=..."` before `tofu plan`/`tofu apply`.
+`entra_tenant_id`, `entra_tenant_subdomain`, and `entra_client_id` are required
+variables with no default, set after creating the Entra External ID tenant
+and SPA app registration manually in the Entra admin center (see "Auth"
+below) — pass them via `-var` or a `*.tfvars` file (not secrets, safe to
+commit).
 
 This creates, inside the target resource group:
 
@@ -119,12 +121,28 @@ Interactive docs at `http://127.0.0.1:8000/docs`. Endpoints:
 | `DELETE /memes/{id}` | deletes the Cosmos DB document and the blob — 204, or 404 if not found |
 | `POST /search/text` | JSON body `{query, topK?, category?}` — hybrid search |
 | `POST /search/image` | multipart: `image`, `topK?`, `category?` — vector-only search |
-| `GET /auth/check` | 200 if the `X-App-Password` header matches `APP_PASSWORD`, used by the frontend's login page |
+| `POST /memes/{id}/view` | 204, increments the meme's view count |
 
-Every route (including `/auth/check` itself) requires an `X-App-Password`
-header matching the `APP_PASSWORD` environment variable, or the API returns
-401. The frontend prompts for this password once and stores it in a cookie,
-attaching it to every request from then on.
+### Auth
+
+Browsing and searching (`GET`/`POST` routes above other than upload/edit/
+delete) require no authentication at all. `POST /memes`, `PATCH /memes/{id}`,
+and `DELETE /memes/{id}` require a bearer token from Entra External ID
+(CIAM) whose `roles` claim includes `Admin`:
+
+1. Create an External (customer) tenant in the Entra admin center, register
+   a SPA app (redirect URI matching the deployed origin), add a sign-up/
+   sign-in user flow, and add an `Admin` app role assigned to your own
+   account.
+2. Set `ENTRA_TENANT_ID`/`ENTRA_TENANT_SUBDOMAIN`/`ENTRA_CLIENT_ID` for the
+   backend (in `.env` locally, or the Terraform variables above for prod)
+   and `NEXT_PUBLIC_ENTRA_CLIENT_ID`/`NEXT_PUBLIC_ENTRA_AUTHORITY` for the
+   frontend build (`frontend/.env.local` locally; passed as Docker build
+   args in CI — see `.github/workflows/deploy.yml`).
+
+The frontend uses `@azure/msal-browser`/`@azure/msal-react` to sign in and
+attach the resulting access token as `Authorization: Bearer <token>` on
+upload/edit/delete requests only.
 
 CORS is enabled for `http://localhost:3000` (the frontend's dev origin).
 

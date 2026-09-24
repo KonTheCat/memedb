@@ -1,11 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { AuthenticatedTemplate, UnauthenticatedTemplate, useMsal } from "@azure/msal-react";
 import CategoryFilter from "@/components/CategoryFilter";
 import LogoutButton from "@/components/LogoutButton";
 import SearchBar, { SearchMode } from "@/components/SearchBar";
 import ResultsGrid from "@/components/ResultsGrid";
 import UploadPanel from "@/components/UploadPanel";
+import { loginRequest } from "@/lib/msalConfig";
 import { ApiError, countMemes, deleteMeme, listMemes, searchImage, searchText } from "@/lib/api";
 import { fromMemeResponse, fromSearchResult, type DisplayMeme } from "@/lib/display";
 import styles from "./page.module.css";
@@ -15,6 +17,7 @@ const PAGE_SIZE = 24;
 type ActiveSearch = { kind: "browse" } | { kind: "text"; query: string } | { kind: "image"; file: File };
 
 export default function Home() {
+  const { instance } = useMsal();
   const [category, setCategory] = useState<string | null>(null);
   const [mode, setMode] = useState<SearchMode>("text");
   const [active, setActive] = useState<ActiveSearch>({ kind: "browse" });
@@ -117,11 +120,20 @@ export default function Home() {
 
   return (
     <main className={styles.main}>
-      <LogoutButton />
+      <AuthenticatedTemplate>
+        <LogoutButton />
+      </AuthenticatedTemplate>
       <h1 className={styles.title}>MemeDB</h1>
 
       <div className={styles.uploadSection}>
-        <UploadPanel onUploaded={handleUploaded} />
+        <AuthenticatedTemplate>
+          <UploadPanel onUploaded={handleUploaded} />
+        </AuthenticatedTemplate>
+        <UnauthenticatedTemplate>
+          <button type="button" onClick={() => instance.loginRedirect(loginRequest)}>
+            Sign in to upload
+          </button>
+        </UnauthenticatedTemplate>
       </div>
 
       <SearchBar

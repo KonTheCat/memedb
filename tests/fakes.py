@@ -41,6 +41,8 @@ class FakeOpenAIMetadataService:
 class FakeCosmosService:
     def __init__(self):
         self._docs: dict[str, dict] = {}
+        self.hybrid_results: list[dict] = []
+        self.vector_results: list[dict] = []
 
     @staticmethod
     def _public(doc: dict) -> dict:
@@ -85,7 +87,7 @@ class FakeCosmosService:
         category: str | None,
         top_k: int,
     ) -> list[dict]:
-        return []
+        return [dict(doc) for doc in self.hybrid_results]
 
     def search_vector(
         self,
@@ -93,4 +95,4 @@ class FakeCosmosService:
         category: str | None,
         top_k: int,
     ) -> list[dict]:
-        return []
+        return [dict(doc) for doc in self.vector_results]

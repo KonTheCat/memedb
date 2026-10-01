@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime, timezone
 
 from memedb.models import MemeDocument
+from memedb.relevance import bucket_image_results, bucket_text_results, lexical_coverage, tokenize
 from memedb.services.blob import BlobService
 from memedb.services.cosmos import CosmosService
 from memedb.services.openai_client import OpenAIMetadataService
@@ -96,10 +97,27 @@ def search_by_text(
     top_k: int,
     vision_service: VisionService,
     cosmos_service: CosmosService,
-) -> list[dict]:
+) -> tuple[list[dict], bool]:
     query_vector = vision_service.vectorize_text(query)
     words = query.split()[:10]
-    return cosmos_service.search_hybrid(query_vector, words, category, top_k)
+    results = cosmos_service.search_hybrid(query_vector, words, category, top_k)
+
+    query_tokens = tokenize(query)
+    coverage_and_terms = [
+        lexical_coverage(
+            query_tokens,
+            tokenize(build_searchable_text(doc.get("ocrText", ""), doc["caption"], doc["templateName"], doc["tags"])),
+        )
+        for doc in results
+    ]
+    buckets, no_strong_matches = bucket_text_results(
+        [(doc["similarity"], coverage) for doc, (coverage, _terms) in zip(results, coverage_and_terms)],
+        vision_service.model_version,
+    )
+    for doc, bucket, (_coverage, matched_terms) in zip(results, buckets, coverage_and_terms):
+        doc["bucket"] = bucket
+        doc["matchedTerms"] = matched_terms
+    return results, no_strong_matches
 
 
 def blob_name_from_url(blob_url: str) -> str:
@@ -112,6 +130,14 @@ def search_by_image(
     top_k: int,
     vision_service: VisionService,
     cosmos_service: CosmosService,
-) -> list[dict]:
+) -> tuple[list[dict], bool]:
     query_vector = vision_service.vectorize_image(data)
-    return cosmos_service.search_vector(query_vector, category, top_k)
+    results = cosmos_service.search_vector(query_vector, category, top_k)
+
+    buckets, no_strong_matches = bucket_image_results(
+        [doc["similarity"] for doc in results], vision_service.model_version
+    )
+    for doc, bucket in zip(results, buckets):
+        doc["bucket"] = bucket
+        doc["matchedTerms"] = []
+    return results, no_strong_matches

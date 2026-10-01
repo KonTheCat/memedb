@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { AuthenticatedTemplate, UnauthenticatedTemplate, useMsal } from "@azure/msal-react";
+import CalibrateLink from "@/components/CalibrateLink";
 import CategoryFilter from "@/components/CategoryFilter";
 import LogoutButton from "@/components/LogoutButton";
 import SearchBar, { SearchMode } from "@/components/SearchBar";
@@ -26,6 +27,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState<number | null>(null);
+  const [noStrongMatches, setNoStrongMatches] = useState(false);
 
   const runSearch = useCallback(async (search: ActiveSearch, cat: string | null, pageNum: number) => {
     setLoading(true);
@@ -35,19 +37,23 @@ export default function Home() {
         const [docs, count] = await Promise.all([listMemes(cat, PAGE_SIZE, pageNum * PAGE_SIZE), countMemes(cat)]);
         setMemes(docs.map(fromMemeResponse));
         setTotalPages(Math.max(1, Math.ceil(count / PAGE_SIZE)));
+        setNoStrongMatches(false);
       } else if (search.kind === "text") {
-        const results = await searchText(search.query, cat);
+        const { results, noStrongMatches: weak } = await searchText(search.query, cat);
         setMemes(results.map(fromSearchResult));
         setTotalPages(null);
+        setNoStrongMatches(weak && results.length > 0);
       } else {
-        const results = await searchImage(search.file, cat);
+        const { results, noStrongMatches: weak } = await searchImage(search.file, cat);
         setMemes(results.map(fromSearchResult));
         setTotalPages(null);
+        setNoStrongMatches(weak && results.length > 0);
       }
     } catch (err) {
       setError(err instanceof ApiError ? String(err.detail) : "Something went wrong.");
       setMemes([]);
       setTotalPages(null);
+      setNoStrongMatches(false);
     } finally {
       setLoading(false);
     }
@@ -121,6 +127,7 @@ export default function Home() {
   return (
     <main className={styles.main}>
       <AuthenticatedTemplate>
+        <CalibrateLink />
         <LogoutButton />
       </AuthenticatedTemplate>
       <h1 className={styles.title}>MemeDB</h1>
@@ -150,7 +157,13 @@ export default function Home() {
 
       <CategoryFilter selected={category} onSelect={handleCategorySelect} />
 
-      <ResultsGrid memes={memes} loading={loading} error={error} onDelete={handleDelete} />
+      <ResultsGrid
+        memes={memes}
+        loading={loading}
+        error={error}
+        onDelete={handleDelete}
+        noStrongMatches={noStrongMatches}
+      />
 
       {active.kind === "browse" && totalPages !== null && (
         <div className={styles.pagination}>

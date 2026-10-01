@@ -27,12 +27,20 @@ class IngestResponse(BaseModel):
 class SearchResultItem(BaseModel):
     id: str
     blobUrl: str
+    ocrText: str
     caption: str
     templateName: str
     tags: list[str]
     category: str
     uploadedAt: str
     similarity: float
+    bucket: str
+    matchedTerms: list[str] = []
+
+
+class SearchResponse(BaseModel):
+    results: list[SearchResultItem]
+    noStrongMatches: bool
 
 
 class TextSearchRequest(BaseModel):

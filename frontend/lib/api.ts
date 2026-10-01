@@ -25,15 +25,25 @@ export interface MemeResponse {
   viewCount: number;
 }
 
+export type RelevanceBucket = "weak" | "possible" | "strong" | "loose" | "similar" | "near_duplicate";
+
 export interface SearchResultItem {
   id: string;
   blobUrl: string;
+  ocrText: string;
   caption: string;
   templateName: string;
   tags: string[];
   category: string;
   uploadedAt: string;
   similarity: number;
+  bucket: RelevanceBucket;
+  matchedTerms: string[];
+}
+
+export interface SearchResponse {
+  results: SearchResultItem[];
+  noStrongMatches: boolean;
 }
 
 export interface IngestResponse {
@@ -107,21 +117,21 @@ export function getMeme(id: string): Promise<MemeResponse> {
   return fetch(`${API_BASE_URL}/memes/${id}`).then((res) => handle<MemeResponse>(res));
 }
 
-export function searchText(query: string, category: string | null, topK = 12): Promise<SearchResultItem[]> {
+export function searchText(query: string, category: string | null, topK = 12): Promise<SearchResponse> {
   return fetch(`${API_BASE_URL}/search/text`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ query, topK, category }),
-  }).then((res) => handle<SearchResultItem[]>(res));
+  }).then((res) => handle<SearchResponse>(res));
 }
 
-export function searchImage(file: File, category: string | null, topK = 12): Promise<SearchResultItem[]> {
+export function searchImage(file: File, category: string | null, topK = 12): Promise<SearchResponse> {
   const form = new FormData();
   form.set("image", file);
   form.set("topK", String(topK));
   if (category) form.set("category", category);
   return fetch(`${API_BASE_URL}/search/image`, { method: "POST", body: form }).then((res) =>
-    handle<SearchResultItem[]>(res),
+    handle<SearchResponse>(res),
   );
 }
 

@@ -13,16 +13,21 @@ from memedb.services.vision import ImageValidationError, VisionService
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 
 
-def print_results(results: list[dict]) -> None:
+def print_results(results: list[dict], no_strong_matches: bool) -> None:
     if not results:
         print("no results")
         return
+    if no_strong_matches:
+        print("no strong matches, here are the closest:")
     for rank, item in enumerate(results, start=1):
         tags = ", ".join(item.get("tags", []))
+        matched = ", ".join(item.get("matchedTerms", []))
         print(
-            f"{rank}. {item['id']} [{item['category']}] similarity={item.get('similarity'):.4f}\n"
+            f"{rank}. {item['id']} [{item['category']}] bucket={item.get('bucket')} "
+            f"(similarity={item.get('similarity'):.4f})\n"
             f"   caption: {item.get('caption', '')}\n"
             f"   template: {item.get('templateName', '')}  tags: {tags}\n"
+            f"   matched terms: {matched}\n"
             f"   {item.get('blobUrl', '')}"
         )
 
@@ -32,8 +37,8 @@ def cmd_search_text(args: argparse.Namespace) -> int:
     vision_service = VisionService(settings)
     cosmos_service = CosmosService(settings)
 
-    results = search_by_text(args.query, args.category, args.top_k, vision_service, cosmos_service)
-    print_results(results)
+    results, no_strong_matches = search_by_text(args.query, args.category, args.top_k, vision_service, cosmos_service)
+    print_results(results, no_strong_matches)
     return 0
 
 
@@ -48,12 +53,14 @@ def cmd_search_image(args: argparse.Namespace) -> int:
     cosmos_service = CosmosService(settings)
 
     try:
-        results = search_by_image(path.read_bytes(), args.category, args.top_k, vision_service, cosmos_service)
+        results, no_strong_matches = search_by_image(
+            path.read_bytes(), args.category, args.top_k, vision_service, cosmos_service
+        )
     except ImageValidationError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
 
-    print_results(results)
+    print_results(results, no_strong_matches)
     return 0
 
 

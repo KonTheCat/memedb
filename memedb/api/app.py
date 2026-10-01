@@ -1,4 +1,6 @@
+import logging
 import os
+from contextlib import asynccontextmanager
 from functools import lru_cache
 from pathlib import Path
 
@@ -9,7 +11,7 @@ from fastapi.responses import Response
 from fastapi.staticfiles import StaticFiles
 from jwt import PyJWKClient
 
-from memedb.api.schemas import IngestResponse, MemeResponse, SearchResultItem, TextSearchRequest, UpdateMemeRequest
+from memedb.api.schemas import IngestResponse, MemeResponse, SearchResponse, TextSearchRequest, UpdateMemeRequest
 from memedb.config import Settings, load_settings
 from memedb.models import VALID_CATEGORIES
 from memedb.pipeline import (
@@ -20,10 +22,30 @@ from memedb.pipeline import (
     search_by_text,
     update_meme_fields,
 )
+from memedb.relevance import is_provisional
 from memedb.services.blob import BlobService
 from memedb.services.cosmos import CosmosService
 from memedb.services.openai_client import OpenAIMetadataService
 from memedb.services.vision import ImageValidationError, VisionService
+
+logger = logging.getLogger(__name__)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    try:
+        model_version = load_settings().vision_model_version
+        for mode in ("text", "image"):
+            if is_provisional(mode, model_version):
+                logger.warning(
+                    "Relevance thresholds for vision model %r (%s search) are "
+                    "provisional/uncalibrated - run scripts/calibrate_thresholds.py.",
+                    model_version,
+                    mode,
+                )
+    except RuntimeError:
+        pass  # missing env vars - local/test startup without full config
+    yield
 
 
 @lru_cache
@@ -61,7 +83,7 @@ def require_admin(claims: dict = Depends(get_current_user)) -> dict:
     return claims
 
 
-app = FastAPI(title="MemeDB API")
+app = FastAPI(title="MemeDB API", lifespan=lifespan)
 
 _allowed_origins = [
     origin.strip()
@@ -145,33 +167,35 @@ async def create_meme(
     return IngestResponse(id=doc.id, blobUrl=doc.blobUrl)
 
 
-@public.post("/search/text", response_model=list[SearchResultItem])
+@public.post("/search/text", response_model=SearchResponse)
 def search_text(
     body: TextSearchRequest,
     vision_service: VisionService = Depends(get_vision_service),
     cosmos_service: CosmosService = Depends(get_cosmos_service),
-) -> list[dict]:
+) -> SearchResponse:
     if body.category is not None:
         _validate_category(body.category)
-    return search_by_text(body.query, body.category, body.topK, vision_service, cosmos_service)
+    results, no_strong_matches = search_by_text(body.query, body.category, body.topK, vision_service, cosmos_service)
+    return SearchResponse(results=results, noStrongMatches=no_strong_matches)
 
 
-@public.post("/search/image", response_model=list[SearchResultItem])
+@public.post("/search/image", response_model=SearchResponse)
 async def search_image(
     image: UploadFile = File(...),
     topK: int = Form(10),
     category: str | None = Form(None),
     vision_service: VisionService = Depends(get_vision_service),
     cosmos_service: CosmosService = Depends(get_cosmos_service),
-) -> list[dict]:
+) -> SearchResponse:
     if category is not None:
         _validate_category(category)
     data = await image.read()
 
     try:
-        return search_by_image(data, category, topK, vision_service, cosmos_service)
+        results, no_strong_matches = search_by_image(data, category, topK, vision_service, cosmos_service)
     except ImageValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return SearchResponse(results=results, noStrongMatches=no_strong_matches)
 
 
 @public.get("/memes/count")

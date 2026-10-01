@@ -67,10 +67,39 @@
   white-space: nowrap;
 }
 
-.similarity {
-  font-size: 0.75rem;
-  color: #34d399;
+.bucket {
+  font-size: 0.7rem;
+  font-weight: 500;
   flex-shrink: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.strong,
+.near_duplicate,
+.similar {
+  color: #34d399;
+}
+
+.possible,
+.loose {
+  color: #d4a94a;
+}
+
+.weak {
+  color: #9c9c9c;
+}
+
+.highlight {
+  background: rgba(52, 211, 153, 0.25);
+  color: inherit;
+  border-radius: 3px;
+  padding: 0 0.1rem;
+}
+
+.tagMatched {
+  background: rgba(52, 211, 153, 0.25);
+  color: #d4d4d4;
 }
 
 .category {

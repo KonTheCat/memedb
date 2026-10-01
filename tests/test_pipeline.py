@@ -5,6 +5,8 @@ from memedb.pipeline import (
     blob_name_from_url,
     build_searchable_text,
     ingest_image,
+    search_by_image,
+    search_by_text,
     update_meme_fields,
 )
 from tests.fakes import FakeBlobService, FakeCosmosService, FakeOpenAIMetadataService, FakeVisionService
@@ -78,3 +80,51 @@ def test_update_meme_fields_merges_updates_and_rebuilds_searchable_text():
     assert updated["caption"] == "new caption"
     assert updated["tags"] == ["updated"]
     assert "new caption" in updated["searchableText"]
+
+
+def _doc(doc_id: str, similarity: float, **overrides) -> dict:
+    doc = {
+        "id": doc_id,
+        "blobUrl": f"https://example.com/{doc_id}.png",
+        "ocrText": "",
+        "caption": "",
+        "templateName": "",
+        "tags": [],
+        "category": "reaction",
+        "uploadedAt": "2026-01-01T00:00:00Z",
+        "similarity": similarity,
+    }
+    doc.update(overrides)
+    return doc
+
+
+def test_search_by_text_attaches_bucket_and_matched_terms():
+    cosmos_service = FakeCosmosService()
+    cosmos_service.hybrid_results = [_doc("meme-1", 0.9, ocrText="such wow very dog")]
+
+    results, no_strong_matches = search_by_text("dog", None, 5, FakeVisionService(), cosmos_service)
+
+    assert results[0]["bucket"] == "strong"
+    assert results[0]["matchedTerms"] == ["dog"]
+    assert no_strong_matches is False
+
+
+def test_search_by_text_no_strong_matches_when_all_weak():
+    cosmos_service = FakeCosmosService()
+    cosmos_service.hybrid_results = [_doc("meme-1", 0.01, ocrText="completely unrelated")]
+
+    results, no_strong_matches = search_by_text("dog", None, 5, FakeVisionService(), cosmos_service)
+
+    assert results[0]["bucket"] == "weak"
+    assert no_strong_matches is True
+
+
+def test_search_by_image_omits_matched_terms_and_uses_image_buckets():
+    cosmos_service = FakeCosmosService()
+    cosmos_service.vector_results = [_doc("meme-1", 0.95)]
+
+    results, no_strong_matches = search_by_image(b"fake-bytes", None, 5, FakeVisionService(), cosmos_service)
+
+    assert results[0]["bucket"] == "near_duplicate"
+    assert results[0]["matchedTerms"] == []
+    assert no_strong_matches is False

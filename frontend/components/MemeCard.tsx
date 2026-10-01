@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { AuthenticatedTemplate } from "@azure/msal-react";
 import { imageUrl } from "@/lib/api";
-import type { DisplayMeme } from "@/lib/display";
+import { bucketLabel, highlightSegments, isTagMatched, type DisplayMeme } from "@/lib/display";
 import styles from "./MemeCard.module.css";
 
 interface Props {
@@ -18,6 +18,10 @@ export default function MemeCard({ meme, onDelete }: Props) {
       onDelete(meme.id);
     }
   }
+
+  const matchedTerms = meme.matchedTerms ?? [];
+  const bodyText = meme.ocrText || meme.caption;
+  const segments = bodyText ? highlightSegments(bodyText, matchedTerms) : [];
 
   return (
     <div className={styles.card}>
@@ -40,17 +44,29 @@ export default function MemeCard({ meme, onDelete }: Props) {
         <div className={styles.body}>
           <div className={styles.headerRow}>
             <span className={styles.template}>{meme.templateName || "Untitled"}</span>
-            {meme.similarity !== undefined && (
-              <span className={styles.similarity}>{(meme.similarity * 100).toFixed(0)}%</span>
-            )}
+            {meme.bucket && <span className={`${styles.bucket} ${styles[meme.bucket]}`}>{bucketLabel(meme.bucket)}</span>}
           </div>
           <span className={styles.category}>{meme.category}</span>
-          {meme.ocrText && <p className={styles.text}>{meme.ocrText}</p>}
-          {!meme.ocrText && meme.caption && <p className={styles.text}>{meme.caption}</p>}
+          {bodyText && (
+            <p className={styles.text}>
+              {segments.map((segment, i) =>
+                segment.highlighted ? (
+                  <mark key={i} className={styles.highlight}>
+                    {segment.text}
+                  </mark>
+                ) : (
+                  <span key={i}>{segment.text}</span>
+                ),
+              )}
+            </p>
+          )}
           {meme.tags.length > 0 && (
             <div className={styles.tags}>
               {meme.tags.map((tag) => (
-                <span key={tag} className={styles.tag}>
+                <span
+                  key={tag}
+                  className={isTagMatched(tag, matchedTerms) ? `${styles.tag} ${styles.tagMatched}` : styles.tag}
+                >
                   {tag}
                 </span>
               ))}

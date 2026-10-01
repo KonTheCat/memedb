@@ -77,7 +77,71 @@ async def test_meme_get_list_update_delete_roundtrip(client):
     assert missing_response.status_code == 404
 
 
-async def test_search_text_returns_list(client):
+async def test_search_text_returns_empty_results(client):
     response = await client.post("/search/text", json={"query": "dog meme", "topK": 5})
     assert response.status_code == 200
-    assert response.json() == []
+    assert response.json() == {"results": [], "noStrongMatches": True}
+
+
+def _hybrid_doc(doc_id: str, similarity: float, **overrides) -> dict:
+    doc = {
+        "id": doc_id,
+        "blobUrl": f"https://example.com/{doc_id}.png",
+        "ocrText": "",
+        "caption": "a dog looking skeptical",
+        "templateName": "doge",
+        "tags": ["dog", "meme"],
+        "category": "reaction",
+        "uploadedAt": "2026-01-01T00:00:00Z",
+        "similarity": similarity,
+    }
+    doc.update(overrides)
+    return doc
+
+
+async def test_search_text_attaches_bucket_and_matched_terms(client, cosmos_service):
+    cosmos_service.hybrid_results = [
+        _hybrid_doc("meme-1", 0.9, ocrText="such wow very dog"),
+    ]
+
+    response = await client.post("/search/text", json={"query": "dog", "topK": 5})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["results"]) == 1
+    result = body["results"][0]
+    assert result["bucket"] == "strong"
+    assert "dog" in result["matchedTerms"]
+    assert body["noStrongMatches"] is False
+    # raw similarity still present for debugging, just not meant to be rendered
+    assert result["similarity"] == 0.9
+
+
+async def test_search_text_no_strong_matches_flag(client, cosmos_service):
+    cosmos_service.hybrid_results = [
+        _hybrid_doc(
+            "meme-1",
+            0.05,
+            ocrText="unrelated text",
+            caption="nothing to do with it",
+            templateName="other-template",
+            tags=["unrelated"],
+        )
+    ]
+
+    response = await client.post("/search/text", json={"query": "dog", "topK": 5})
+
+    body = response.json()
+    assert body["results"][0]["bucket"] == "weak"
+    assert body["noStrongMatches"] is True
+
+
+async def test_search_image_omits_matched_terms(client, cosmos_service):
+    cosmos_service.vector_results = [_hybrid_doc("meme-1", 0.97)]
+
+    files = {"image": ("query.png", b"fake-bytes", "image/png")}
+    response = await client.post("/search/image", files=files)
+
+    body = response.json()
+    assert body["results"][0]["bucket"] == "near_duplicate"
+    assert body["results"][0]["matchedTerms"] == []

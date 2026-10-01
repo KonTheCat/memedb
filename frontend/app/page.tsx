@@ -7,7 +7,7 @@ import LogoutButton from "@/components/LogoutButton";
 import SearchBar, { SearchMode } from "@/components/SearchBar";
 import ResultsGrid from "@/components/ResultsGrid";
 import UploadPanel from "@/components/UploadPanel";
-import { loginRequest } from "@/lib/msalConfig";
+import { loginRequest, signUpRequest } from "@/lib/msalConfig";
 import { ApiError, countMemes, deleteMeme, listMemes, searchImage, searchText } from "@/lib/api";
 import { fromMemeResponse, fromSearchResult, type DisplayMeme } from "@/lib/display";
 import styles from "./page.module.css";
@@ -130,9 +130,14 @@ export default function Home() {
           <UploadPanel onUploaded={handleUploaded} />
         </AuthenticatedTemplate>
         <UnauthenticatedTemplate>
-          <button type="button" onClick={() => instance.loginRedirect(loginRequest)}>
-            Sign in to upload
-          </button>
+          <div className={styles.authButtons}>
+            <button type="button" onClick={() => instance.loginRedirect(loginRequest)}>
+              Sign in to upload
+            </button>
+            <button type="button" onClick={() => instance.loginRedirect(signUpRequest)}>
+              Sign up
+            </button>
+          </div>
         </UnauthenticatedTemplate>
       </div>
 

@@ -3,7 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useIsAuthenticated, useMsal } from "@azure/msal-react";
-import { loginRequest } from "@/lib/msalConfig";
+import { loginRequest, signUpRequest } from "@/lib/msalConfig";
 import styles from "./page.module.css";
 
 export default function LoginPage() {
@@ -24,6 +24,9 @@ export default function LoginPage() {
         <h1 className={styles.title}>MemeDB</h1>
         <button type="button" onClick={() => instance.loginRedirect(loginRequest)}>
           Sign in
+        </button>
+        <button type="button" className={styles.secondary} onClick={() => instance.loginRedirect(signUpRequest)}>
+          Sign up
         </button>
       </div>
     </main>

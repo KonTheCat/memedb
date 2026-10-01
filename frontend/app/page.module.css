@@ -15,6 +15,30 @@
   border-bottom: 1px solid #2a2a2a;
 }
 
+.authButtons {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.authButtons button {
+  padding: 0.55rem 1rem;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.authButtons button:first-child {
+  border: none;
+  background: #2563eb;
+  color: white;
+  font-weight: 600;
+}
+
+.authButtons button:last-child {
+  border: 1px solid #3a3a3a;
+  background: transparent;
+  color: #f4f4f4;
+}
+
 .pagination {
   display: flex;
   align-items: center;

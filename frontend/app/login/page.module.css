@@ -52,6 +52,12 @@
   cursor: not-allowed;
 }
 
+.form button.secondary {
+  background: transparent;
+  border: 1px solid #3a3a3a;
+  color: #f4f4f4;
+}
+
 .error {
   color: #f87171;
   font-size: 0.85rem;
